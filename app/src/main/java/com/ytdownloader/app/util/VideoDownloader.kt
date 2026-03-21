@@ -87,11 +87,11 @@ object VideoDownloader {
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
-                    Exception("Download failed: HTTP ${response.code()}")
+                    Exception("Download failed: HTTP ${response.code}")
                 )
             }
 
-            val body = response.body()
+            val body = response.body
                 ?: return@withContext Result.failure(Exception("Empty response body"))
 
             val totalBytes = body.contentLength()

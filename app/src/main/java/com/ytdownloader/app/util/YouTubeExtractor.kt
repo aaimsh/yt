@@ -2,6 +2,7 @@ package com.ytdownloader.app.util
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -82,18 +83,20 @@ object YouTubeExtractor {
             .header("Content-Type", "application/json")
             .header("X-Youtube-Client-Name", "3")
             .header("X-Youtube-Client-Version", "19.09.37")
-            .post(okhttp3.RequestBody.create(
-                okhttp3.MediaType.parse("application/json"),
-                body.toString()
-            ))
+            .post(
+                okhttp3.RequestBody.create(
+                    "application/json".toMediaType(),
+                    body.toString()
+                )
+            )
             .build()
 
         val response = client.newCall(request).execute()
-        val responseBody = response.body()?.string()
+        val responseBody = response.body?.string()
             ?: throw Exception("Empty response from YouTube")
 
         if (!response.isSuccessful) {
-            throw Exception("YouTube API error: ${response.code()}")
+            throw Exception("YouTube API error: ${response.code}")
         }
 
         val json = JSONObject(responseBody)
