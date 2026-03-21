@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.chaquo.python")
 }
 
 android {
@@ -14,16 +13,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
-
-        python {
-            pip {
-                install("yt-dlp")
-            }
-        }
     }
 
     buildTypes {
@@ -80,8 +69,11 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
-    // Notifications
-    implementation("androidx.core:core-ktx:1.12.0")
+    // Networking
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // JSON parsing
+    implementation("org.json:json:20231013")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

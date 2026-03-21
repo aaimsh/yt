@@ -1,6 +1,7 @@
-# yt-dlp / Chaquopy
--keep class com.chaquo.** { *; }
--keep class com.ytdownloader.app.util.ProgressCallback { *; }
+# OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
 
 # Kotlin coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}

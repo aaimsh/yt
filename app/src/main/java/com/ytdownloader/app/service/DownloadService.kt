@@ -8,11 +8,10 @@ import android.os.Environment
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.ytdownloader.app.MainActivity
-import com.ytdownloader.app.R
 import com.ytdownloader.app.YTDownloaderApp
 import com.ytdownloader.app.util.DownloadProgress
 import com.ytdownloader.app.util.DownloadState
-import com.ytdownloader.app.util.YtDlpWrapper
+import com.ytdownloader.app.util.VideoDownloader
 import kotlinx.coroutines.*
 import java.io.File
 
@@ -22,7 +21,8 @@ class DownloadService : Service() {
 
     companion object {
         const val EXTRA_URL = "extra_url"
-        const val EXTRA_PRESET = "extra_preset"
+        const val EXTRA_FILENAME = "extra_filename"
+        const val EXTRA_EXTENSION = "extra_extension"
         const val NOTIFICATION_ID = 1001
     }
 
@@ -30,7 +30,8 @@ class DownloadService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val url = intent?.getStringExtra(EXTRA_URL) ?: return START_NOT_STICKY
-        val preset = intent.getStringExtra(EXTRA_PRESET) ?: "best_video"
+        val filename = intent.getStringExtra(EXTRA_FILENAME) ?: "video"
+        val extension = intent.getStringExtra(EXTRA_EXTENSION) ?: "mp4"
 
         startForeground(NOTIFICATION_ID, createNotification("Preparing download...", 0))
 
@@ -40,10 +41,11 @@ class DownloadService : Service() {
                 "YTDownloader"
             ).absolutePath
 
-            YtDlpWrapper.downloadWithPreset(
+            VideoDownloader.download(
                 url = url,
                 outputDir = outputDir,
-                presetId = preset,
+                fileName = filename,
+                extension = extension,
                 onProgress = { progress ->
                     updateNotification(progress)
                 }
@@ -82,7 +84,6 @@ class DownloadService : Service() {
                 val pct = (progress.progress * 100).toInt()
                 "Downloading... $pct% ${progress.speedText}"
             }
-            DownloadState.MERGING -> "Merging audio & video..."
             else -> "Processing..."
         }
         val pct = (progress.progress * 100).toInt()

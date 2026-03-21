@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ytdownloader.app.util.DownloadState
-import com.ytdownloader.app.util.YtDlpWrapper
+import com.ytdownloader.app.util.VideoDownloader
 import com.ytdownloader.app.viewmodel.DownloadViewModel
 import java.io.File
 
@@ -368,7 +368,7 @@ private fun VideoInfoCard(
 
 @Composable
 private fun PresetCard(
-    preset: YtDlpWrapper.PresetFormat,
+    preset: VideoDownloader.PresetFormat,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {

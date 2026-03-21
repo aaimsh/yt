@@ -16,7 +16,7 @@ data class UiState(
     val videoInfo: VideoInfo? = null,
     val downloadProgress: DownloadProgress = DownloadProgress(),
     val selectedPreset: String = "best_video",
-    val presets: List<YtDlpWrapper.PresetFormat> = emptyList(),
+    val presets: List<VideoDownloader.PresetFormat> = emptyList(),
     val downloads: List<DownloadRecord> = emptyList(),
 )
 
@@ -43,7 +43,7 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     init {
         _uiState.value = _uiState.value.copy(
-            presets = YtDlpWrapper.getPresetFormats()
+            presets = VideoDownloader.getPresetFormats()
         )
     }
 
@@ -64,7 +64,7 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         )
 
         viewModelScope.launch {
-            val result = YtDlpWrapper.fetchVideoInfo(url)
+            val result = YouTubeExtractor.fetchVideoInfo(url)
             result.onSuccess { info ->
                 _uiState.value = _uiState.value.copy(
                     videoInfo = info,
@@ -83,26 +83,39 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     fun startDownload() {
         val url = _uiState.value.url.trim()
-        if (url.isEmpty()) return
+        val videoInfo = _uiState.value.videoInfo ?: return
+        val presetId = _uiState.value.selectedPreset
+
+        // Find the best format for the selected preset
+        val format = YouTubeExtractor.selectFormat(videoInfo.formats, presetId)
+        if (format == null || format.url.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                downloadProgress = DownloadProgress(
+                    state = DownloadState.ERROR,
+                    errorMessage = "No suitable format found for this quality",
+                )
+            )
+            return
+        }
 
         _uiState.value = _uiState.value.copy(
             downloadProgress = DownloadProgress(state = DownloadState.DOWNLOADING)
         )
 
         viewModelScope.launch {
-            val result = YtDlpWrapper.downloadWithPreset(
-                url = url,
+            val result = VideoDownloader.download(
+                url = format.url,
                 outputDir = downloadsDir.absolutePath,
-                presetId = _uiState.value.selectedPreset,
+                fileName = videoInfo.title,
+                extension = format.extension,
                 onProgress = { progress ->
                     _uiState.value = _uiState.value.copy(downloadProgress = progress)
                 }
             )
 
             result.onSuccess { filename ->
-                val title = _uiState.value.videoInfo?.title ?: "Downloaded video"
                 val record = DownloadRecord(
-                    title = title,
+                    title = videoInfo.title,
                     filePath = filename,
                     timestamp = System.currentTimeMillis(),
                 )

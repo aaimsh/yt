@@ -8,6 +8,7 @@ data class VideoFormat(
     val description: String,
     val hasVideo: Boolean,
     val hasAudio: Boolean,
+    val url: String = "",
 )
 
 data class VideoInfo(
