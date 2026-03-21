@@ -2,6 +2,7 @@ package com.ytdownloader.app.viewmodel
 
 import android.app.Application
 import android.os.Environment
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ytdownloader.app.util.*
@@ -10,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 
 data class UiState(
     val url: String = "",
@@ -55,6 +58,14 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         _uiState.value = _uiState.value.copy(selectedPreset = presetId)
     }
 
+    private fun showErrorToast(error: Throwable) {
+        val sw = StringWriter()
+        error.printStackTrace(PrintWriter(sw))
+        val trace = sw.toString().take(500)
+        val msg = "${error.javaClass.simpleName}: ${error.message}\n$trace"
+        Toast.makeText(getApplication(), msg, Toast.LENGTH_LONG).show()
+    }
+
     fun fetchInfo() {
         val url = _uiState.value.url.trim()
         if (url.isEmpty()) return
@@ -64,17 +75,28 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         )
 
         viewModelScope.launch {
-            val result = YouTubeExtractor.fetchVideoInfo(url)
-            result.onSuccess { info ->
-                _uiState.value = _uiState.value.copy(
-                    videoInfo = info,
-                    downloadProgress = DownloadProgress(state = DownloadState.READY),
-                )
-            }.onFailure { error ->
+            try {
+                val result = YouTubeExtractor.fetchVideoInfo(url)
+                result.onSuccess { info ->
+                    _uiState.value = _uiState.value.copy(
+                        videoInfo = info,
+                        downloadProgress = DownloadProgress(state = DownloadState.READY),
+                    )
+                }.onFailure { error ->
+                    showErrorToast(error)
+                    _uiState.value = _uiState.value.copy(
+                        downloadProgress = DownloadProgress(
+                            state = DownloadState.ERROR,
+                            errorMessage = error.message ?: "Failed to fetch video info",
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                showErrorToast(e)
                 _uiState.value = _uiState.value.copy(
                     downloadProgress = DownloadProgress(
                         state = DownloadState.ERROR,
-                        errorMessage = error.message ?: "Failed to fetch video info",
+                        errorMessage = e.message ?: "Unexpected error",
                     )
                 )
             }
