@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#FFFFFF">
+
+    <!-- Play triangle icon centered in adaptive icon safe zone -->
+    <group
+        android:translateX="27"
+        android:translateY="27">
+        <!-- Red circle background -->
+        <path
+            android:fillColor="#FF0000"
+            android:pathData="M27,0C41.912,0 54,12.088 54,27C54,41.912 41.912,54 27,54C12.088,54 0,41.912 0,27C0,12.088 12.088,0 27,0Z"/>
+        <!-- White play triangle -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M21,16L21,38L39,27Z"/>
+    </group>
+</vector>
