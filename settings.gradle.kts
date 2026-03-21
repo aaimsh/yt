@@ -6,7 +6,8 @@ pluginManagement {
         maven { url = uri("https://chaquo.com/maven") }
     }
 }
-dependencyResolution {
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
