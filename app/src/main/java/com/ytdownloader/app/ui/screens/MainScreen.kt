@@ -333,12 +333,6 @@ private fun URLInputCard(
                     shape = RoundedCornerShape(12.dp),
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                        Spacer(Modifier.width(6.dp))
                         Text("Loading...")
                     } else {
                         Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -521,6 +515,7 @@ private fun DownloadProgressCard(
                 )
                 Spacer(Modifier.height(12.dp))
                 LinearProgressIndicator(
+                    progress = 0.5f,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
