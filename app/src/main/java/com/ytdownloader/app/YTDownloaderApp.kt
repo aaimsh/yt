@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.ytdownloader.app.util.CrashLog
 
 class YTDownloaderApp : Application() {
     companion object {
@@ -12,7 +13,16 @@ class YTDownloaderApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        setupCrashHandler()
         createNotificationChannels()
+    }
+
+    private fun setupCrashHandler() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            CrashLog.save(this, throwable)
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
     }
 
     private fun createNotificationChannels() {

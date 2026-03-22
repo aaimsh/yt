@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ytdownloader.app.util.CrashLog
 import com.ytdownloader.app.util.DownloadState
 import com.ytdownloader.app.util.VideoDownloader
 import com.ytdownloader.app.viewmodel.DownloadViewModel
@@ -79,6 +81,55 @@ fun MainScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // Crash Log Banner
+            item {
+                var crashLog by remember { mutableStateOf(CrashLog.read(context)) }
+                if (crashLog != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                "Last Crash Log",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            SelectionContainer {
+                                Text(
+                                    crashLog!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = {
+                                    clipboardManager.setText(
+                                        androidx.compose.ui.text.AnnotatedString(crashLog!!)
+                                    )
+                                }) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Copy")
+                                }
+                                OutlinedButton(onClick = {
+                                    CrashLog.clear(context)
+                                    crashLog = null
+                                }) {
+                                    Text("Dismiss")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // URL Input Section
             item {
                 Spacer(Modifier.height(8.dp))

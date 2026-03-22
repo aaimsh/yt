@@ -5,6 +5,7 @@ import android.os.Environment
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ytdownloader.app.util.CrashLog
 import com.ytdownloader.app.util.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,6 +60,7 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun showErrorToast(error: Throwable) {
+        CrashLog.save(getApplication(), error)
         val sw = StringWriter()
         error.printStackTrace(PrintWriter(sw))
         val trace = sw.toString().take(500)
