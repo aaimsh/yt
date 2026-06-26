@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.ytdownloader.app.extractor.NewPipeInitializer
 import com.ytdownloader.app.util.CrashLog
 
 class YTDownloaderApp : Application() {
@@ -15,6 +16,8 @@ class YTDownloaderApp : Application() {
         super.onCreate()
         setupCrashHandler()
         createNotificationChannels()
+        // Cheap: only stores statics + lazily builds an OkHttp client. No network here.
+        NewPipeInitializer.init()
     }
 
     private fun setupCrashHandler() {
