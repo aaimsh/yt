@@ -20,9 +20,17 @@ A simple Android app to download YouTube videos. Pure Kotlin — no Python depen
 ## Architecture
 
 - **Kotlin + Jetpack Compose** for the UI
-- **YouTube Innertube API** for video metadata and stream extraction
+- **NewPipeExtractor** for video metadata and stream extraction (handles YouTube
+  signature/n-param deciphering via Rhino)
 - **OkHttp** for networking and file downloads
-- **MVVM** pattern with ViewModel + StateFlow
+- **MediaStore** (API 29+) / public Downloads dir (API 26–28) for saving files
+- **MVVM** with a thin repository layer (`extractor/`, `download/`) feeding a
+  ViewModel + StateFlow
+
+> Combined audio+video streams from YouTube top out at ~720p. Higher resolutions
+> exist only as separate video-only streams, and this app does not bundle a muxer,
+> so quality options only list streams that already include audio (plus an
+> audio-only option).
 
 ## Building
 
@@ -57,17 +65,28 @@ Or download a pre-built APK from the [Actions](../../actions) tab.
 
 ```
 app/src/main/java/com/ytdownloader/app/
-├── MainActivity.kt              # Entry point, handles share intents
-├── YTDownloaderApp.kt           # Application class, notification channels
+├── MainActivity.kt              # Entry point, singleTop share-intent handling
+├── YTDownloaderApp.kt           # Application: NewPipe init, notification channel
+├── core/
+│   └── IntentUrlExtractor.kt    # Pull a YouTube URL out of a launch intent
+├── domain/
+│   └── Models.kt                # VideoMeta, StreamOption, DownloadProgress, ...
+├── extractor/
+│   ├── OkHttpDownloader.kt      # NewPipe Downloader backed by OkHttp
+│   ├── NewPipeInitializer.kt    # Idempotent NewPipe.init()
+│   └── StreamInfoRepository.kt  # Fetch StreamInfo → quality options
+├── download/
+│   ├── DownloadRepository.kt    # OkHttp streaming + progress StateFlow
+│   ├── ProgressReporter.kt      # Speed / ETA formatting
+│   ├── OpenFile.kt              # ACTION_VIEW intent for finished files
+│   └── media/                   # MediaSink: MediaStore (29+) / legacy (26–28)
 ├── ui/
 │   ├── screens/MainScreen.kt    # Main Compose UI
 │   └── theme/Theme.kt           # Material 3 theming
 ├── viewmodel/
-│   └── DownloadViewModel.kt     # State management
+│   └── DownloadViewModel.kt     # UiState + StateFlow
 ├── service/
 │   └── DownloadService.kt       # Foreground download service
 └── util/
-    ├── VideoInfo.kt             # Data models
-    ├── YouTubeExtractor.kt      # YouTube innertube API client
-    └── VideoDownloader.kt       # File downloader with progress
+    └── CrashLog.kt              # In-app crash log
 ```

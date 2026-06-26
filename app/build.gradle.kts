@@ -72,8 +72,8 @@ dependencies {
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // JSON parsing
-    implementation("org.json:json:20231013")
+    // YouTube extraction (handles signature/n-param deciphering via Rhino)
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.3")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

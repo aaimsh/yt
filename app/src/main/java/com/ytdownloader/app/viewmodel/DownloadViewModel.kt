@@ -1,172 +1,141 @@
 package com.ytdownloader.app.viewmodel
 
 import android.app.Application
-import android.os.Environment
-import android.widget.Toast
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.ytdownloader.app.util.CrashLog
-import com.ytdownloader.app.util.*
+import com.ytdownloader.app.domain.DownloadProgress
+import com.ytdownloader.app.domain.StreamKind
+import com.ytdownloader.app.domain.StreamOption
+import com.ytdownloader.app.domain.StreamSelection
+import com.ytdownloader.app.download.DownloadRepository
+import com.ytdownloader.app.extractor.StreamInfoRepository
+import com.ytdownloader.app.service.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 
 data class UiState(
     val url: String = "",
-    val videoInfo: VideoInfo? = null,
-    val downloadProgress: DownloadProgress = DownloadProgress(),
-    val selectedPreset: String = "best_video",
-    val presets: List<VideoDownloader.PresetFormat> = emptyList(),
-    val downloads: List<DownloadRecord> = emptyList(),
-)
-
-data class DownloadRecord(
-    val title: String,
-    val filePath: String,
-    val timestamp: Long,
+    val isFetching: Boolean = false,
+    val fetchError: String? = null,
+    val selection: StreamSelection? = null,
+    val selectedOptionId: String? = null,
+    val download: DownloadProgress = DownloadProgress(),
 )
 
 class DownloadViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val streamRepo = StreamInfoRepository()
+
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    private val downloadsDir: File
-        get() {
-            val dir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "YTDownloader"
-            )
-            dir.mkdirs()
-            return dir
-        }
-
     init {
-        _uiState.value = _uiState.value.copy(
-            presets = VideoDownloader.getPresetFormats()
-        )
+        // Mirror the process-wide download progress into the UI state.
+        viewModelScope.launch {
+            DownloadRepository.progress.collect { progress ->
+                _uiState.value = _uiState.value.copy(download = progress)
+            }
+        }
     }
 
     fun updateUrl(url: String) {
         _uiState.value = _uiState.value.copy(url = url)
     }
 
-    fun selectPreset(presetId: String) {
-        _uiState.value = _uiState.value.copy(selectedPreset = presetId)
+    fun selectOption(id: String) {
+        _uiState.value = _uiState.value.copy(selectedOptionId = id)
     }
 
-    private fun showErrorToast(error: Throwable) {
-        CrashLog.save(getApplication(), error)
-        val sw = StringWriter()
-        error.printStackTrace(PrintWriter(sw))
-        val trace = sw.toString().take(500)
-        val msg = "${error.javaClass.simpleName}: ${error.message}\n$trace"
-        Toast.makeText(getApplication(), msg, Toast.LENGTH_LONG).show()
-    }
-
-    fun fetchInfo() {
+    fun fetch() {
         val url = _uiState.value.url.trim()
         if (url.isEmpty()) return
 
+        DownloadRepository.reset()
         _uiState.value = _uiState.value.copy(
-            downloadProgress = DownloadProgress(state = DownloadState.FETCHING_INFO)
+            isFetching = true,
+            fetchError = null,
+            selection = null,
+            selectedOptionId = null,
+            download = DownloadProgress(),
         )
 
         viewModelScope.launch {
-            try {
-                val result = YouTubeExtractor.fetchVideoInfo(url)
-                result.onSuccess { info ->
+            streamRepo.fetch(url)
+                .onSuccess { selection ->
                     _uiState.value = _uiState.value.copy(
-                        videoInfo = info,
-                        downloadProgress = DownloadProgress(state = DownloadState.READY),
-                    )
-                }.onFailure { error ->
-                    showErrorToast(error)
-                    _uiState.value = _uiState.value.copy(
-                        downloadProgress = DownloadProgress(
-                            state = DownloadState.ERROR,
-                            errorMessage = error.message ?: "Failed to fetch video info",
-                        )
+                        isFetching = false,
+                        selection = selection,
+                        selectedOptionId = selection.options.firstOrNull()?.id,
                     )
                 }
-            } catch (e: Exception) {
-                showErrorToast(e)
-                _uiState.value = _uiState.value.copy(
-                    downloadProgress = DownloadProgress(
-                        state = DownloadState.ERROR,
-                        errorMessage = e.message ?: "Unexpected error",
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isFetching = false,
+                        fetchError = friendlyMessage(error),
                     )
-                )
-            }
+                }
         }
     }
 
     fun startDownload() {
-        val url = _uiState.value.url.trim()
-        val videoInfo = _uiState.value.videoInfo ?: return
-        val presetId = _uiState.value.selectedPreset
+        val state = _uiState.value
+        val selection = state.selection ?: return
+        val option = selection.options.firstOrNull { it.id == state.selectedOptionId }
+            ?: selection.options.firstOrNull()
+            ?: return
 
-        // Find the best format for the selected preset
-        val format = YouTubeExtractor.selectFormat(videoInfo.formats, presetId)
-        if (format == null || format.url.isBlank()) {
-            _uiState.value = _uiState.value.copy(
-                downloadProgress = DownloadProgress(
-                    state = DownloadState.ERROR,
-                    errorMessage = "No suitable format found for this quality",
-                )
-            )
-            return
+        val context = getApplication<Application>()
+        val intent = Intent(context, DownloadService::class.java).apply {
+            action = DownloadService.ACTION_START
+            putExtra(DownloadService.EXTRA_URL, option.url)
+            putExtra(DownloadService.EXTRA_NAME, fileNameFor(selection.meta.title, option))
+            putExtra(DownloadService.EXTRA_MIME, mimeFor(option))
         }
+        ContextCompat.startForegroundService(context, intent)
+    }
 
-        _uiState.value = _uiState.value.copy(
-            downloadProgress = DownloadProgress(state = DownloadState.DOWNLOADING)
+    fun cancelDownload() {
+        val context = getApplication<Application>()
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, DownloadService::class.java).setAction(DownloadService.ACTION_STOP),
         )
-
-        viewModelScope.launch {
-            val result = VideoDownloader.download(
-                url = format.url,
-                outputDir = downloadsDir.absolutePath,
-                fileName = videoInfo.title,
-                extension = format.extension,
-                onProgress = { progress ->
-                    _uiState.value = _uiState.value.copy(downloadProgress = progress)
-                }
-            )
-
-            result.onSuccess { filename ->
-                val record = DownloadRecord(
-                    title = videoInfo.title,
-                    filePath = filename,
-                    timestamp = System.currentTimeMillis(),
-                )
-                _uiState.value = _uiState.value.copy(
-                    downloadProgress = DownloadProgress(
-                        state = DownloadState.COMPLETED,
-                        progress = 1f,
-                        outputPath = filename,
-                    ),
-                    downloads = listOf(record) + _uiState.value.downloads,
-                )
-            }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(
-                    downloadProgress = DownloadProgress(
-                        state = DownloadState.ERROR,
-                        errorMessage = error.message ?: "Download failed",
-                    )
-                )
-            }
-        }
     }
 
     fun reset() {
-        _uiState.value = _uiState.value.copy(
-            url = "",
-            videoInfo = null,
-            downloadProgress = DownloadProgress(),
-        )
+        DownloadRepository.reset()
+        _uiState.value = UiState(url = _uiState.value.url)
+    }
+
+    private fun fileNameFor(title: String, option: StreamOption): String {
+        val safe = title.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().take(150)
+            .ifBlank { "video" }
+        return "$safe.${option.container}"
+    }
+
+    private fun mimeFor(option: StreamOption): String = when (option.kind) {
+        StreamKind.AUDIO -> when (option.container.lowercase()) {
+            "webm", "opus" -> "audio/webm"
+            "m4a", "mp4" -> "audio/mp4"
+            else -> "audio/mpeg"
+        }
+        StreamKind.VIDEO -> when (option.container.lowercase()) {
+            "webm" -> "video/webm"
+            else -> "video/mp4"
+        }
+    }
+
+    private fun friendlyMessage(error: Throwable): String {
+        val raw = error.message?.takeIf { it.isNotBlank() }
+        // ContentNotAvailableException is the base for region/age/private/removed errors;
+        // its message already describes the specific cause.
+        if (error is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException) {
+            return raw ?: "This video is not available."
+        }
+        return raw ?: "Couldn't fetch video info. Check the URL and your connection."
     }
 }
