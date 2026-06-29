@@ -7,6 +7,7 @@ import com.ytdownloader.app.domain.VideoMeta
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
@@ -14,10 +15,11 @@ import org.schabi.newpipe.extractor.stream.VideoStream
 /**
  * Fetches a video's metadata + downloadable streams via NewPipeExtractor.
  *
- * Only progressive (muxed) video streams are surfaced as video options, because there is
- * no ffmpeg muxing step — so the highest combined-with-audio resolution YouTube serves
- * (typically 720p) is the ceiling. 1080p+ exist only as silent video-only streams and are
- * deliberately excluded. The best audio-only stream is offered separately.
+ * Progressive (already-muxed) video streams are surfaced as-is — YouTube caps these at ~720p.
+ * Higher resolutions exist only as silent video-only streams, so for H.264/MP4 video-only
+ * streams above the best progressive height we pair the best AAC (M4A) audio track and mark the
+ * option for on-device merging (see [com.ytdownloader.app.download.mux.Muxer]). The best
+ * audio-only stream is also offered on its own.
  */
 class StreamInfoRepository(
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -40,8 +42,12 @@ class StreamInfoRepository(
 
         val options = mutableListOf<StreamOption>()
 
-        // Distinct progressive resolutions, highest first.
+        // Video options paired with their height so the merged list can be sorted highest-first.
+        val videoOptions = mutableListOf<Pair<Int, StreamOption>>()
         val seenHeights = mutableSetOf<Int>()
+
+        // Distinct progressive (already-muxed) resolutions.
+        var bestProgressiveHeight = 0
         info.videoStreams
             .asSequence()
             .filter { !it.isVideoOnly }
@@ -49,8 +55,9 @@ class StreamInfoRepository(
             .sortedByDescending { it.first }
             .forEach { (height, vs) ->
                 if (seenHeights.add(height)) {
+                    bestProgressiveHeight = maxOf(bestProgressiveHeight, height)
                     val container = vs.format?.suffix ?: "mp4"
-                    options += StreamOption(
+                    videoOptions += height to StreamOption(
                         id = "v$height",
                         url = vs.content,
                         container = container,
@@ -60,6 +67,36 @@ class StreamInfoRepository(
                     )
                 }
             }
+
+        // Higher resolutions: H.264/MP4 video-only streams merged with the best AAC audio.
+        // Restricting to MPEG_4 video + M4A audio keeps the merge on MediaMuxer's reliable path.
+        val bestAac = info.audioStreams
+            .filter { it.format == MediaFormat.M4A }
+            .maxByOrNull { it.averageBitrate }
+        if (bestAac != null) {
+            info.videoOnlyStreams
+                .asSequence()
+                .filter { it.format == MediaFormat.MPEG_4 }
+                .mapNotNull { vs -> heightOf(vs).takeIf { it > bestProgressiveHeight }?.let { it to vs } }
+                .sortedByDescending { it.first }
+                .forEach { (height, vs) ->
+                    if (seenHeights.add(height)) {
+                        videoOptions += height to StreamOption(
+                            id = "mux$height",
+                            url = vs.content,
+                            container = "mp4",
+                            label = "${height}p",
+                            sublabel = "MP4 · video+audio merged",
+                            kind = StreamKind.VIDEO,
+                            audioUrl = bestAac.content,
+                            requiresMux = true,
+                        )
+                    }
+                }
+        }
+
+        // Highest resolution first, regardless of progressive vs. merged.
+        videoOptions.sortedByDescending { it.first }.forEach { options += it.second }
 
         // Best audio-only stream.
         info.audioStreams

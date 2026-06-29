@@ -92,6 +92,8 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         val intent = Intent(context, DownloadService::class.java).apply {
             action = DownloadService.ACTION_START
             putExtra(DownloadService.EXTRA_URL, option.url)
+            option.audioUrl?.let { putExtra(DownloadService.EXTRA_AUDIO_URL, it) }
+            putExtra(DownloadService.EXTRA_REQUIRES_MUX, option.requiresMux)
             putExtra(DownloadService.EXTRA_NAME, fileNameFor(selection.meta.title, option))
             putExtra(DownloadService.EXTRA_MIME, mimeFor(option))
         }

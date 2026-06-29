@@ -27,10 +27,11 @@ A simple Android app to download YouTube videos. Pure Kotlin — no Python depen
 - **MVVM** with a thin repository layer (`extractor/`, `download/`) feeding a
   ViewModel + StateFlow
 
-> Combined audio+video streams from YouTube top out at ~720p. Higher resolutions
-> exist only as separate video-only streams, and this app does not bundle a muxer,
-> so quality options only list streams that already include audio (plus an
-> audio-only option).
+> Combined audio+video streams from YouTube top out at ~720p. For 1080p, the app
+> downloads the H.264 video-only stream plus the best AAC audio stream and merges them
+> on-device with Android's built-in `MediaMuxer` (a remux — no re-encode, no quality
+> loss, no bundled ffmpeg). 1440p/4K are not offered: YouTube serves those only as
+> VP9/AV1 + Opus, which can't be remuxed reliably across devices.
 
 ## Building
 
@@ -79,6 +80,7 @@ app/src/main/java/com/ytdownloader/app/
 │   ├── DownloadRepository.kt    # OkHttp streaming + progress StateFlow
 │   ├── ProgressReporter.kt      # Speed / ETA formatting
 │   ├── OpenFile.kt              # ACTION_VIEW intent for finished files
+│   ├── mux/Muxer.kt             # MediaMuxer remux of video-only + audio → MP4
 │   └── media/                   # MediaSink: MediaStore (29+) / legacy (26–28)
 ├── ui/
 │   ├── screens/MainScreen.kt    # Main Compose UI
