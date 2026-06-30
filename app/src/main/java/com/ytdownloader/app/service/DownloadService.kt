@@ -37,6 +37,8 @@ class DownloadService : Service() {
         const val ACTION_START = "com.ytdownloader.app.action.START"
         const val ACTION_STOP = "com.ytdownloader.app.action.STOP"
         const val EXTRA_URL = "extra_url"
+        const val EXTRA_AUDIO_URL = "extra_audio_url"
+        const val EXTRA_REQUIRES_MUX = "extra_requires_mux"
         const val EXTRA_NAME = "extra_name"
         const val EXTRA_MIME = "extra_mime"
 
@@ -53,6 +55,8 @@ class DownloadService : Service() {
         }
 
         val url = intent?.getStringExtra(EXTRA_URL) ?: return START_NOT_STICKY
+        val audioUrl = intent.getStringExtra(EXTRA_AUDIO_URL)
+        val requiresMux = intent.getBooleanExtra(EXTRA_REQUIRES_MUX, false)
         val name = intent.getStringExtra(EXTRA_NAME) ?: "video.mp4"
         val mime = intent.getStringExtra(EXTRA_MIME) ?: "video/mp4"
 
@@ -68,7 +72,11 @@ class DownloadService : Service() {
 
         downloadJob?.cancel()
         downloadJob = scope.launch {
-            DownloadRepository.download(applicationContext, url, name, mime)
+            if (requiresMux && audioUrl != null) {
+                DownloadRepository.downloadMuxed(applicationContext, url, audioUrl, name, mime)
+            } else {
+                DownloadRepository.download(applicationContext, url, name, mime)
+            }
         }
 
         return START_NOT_STICKY
@@ -79,6 +87,7 @@ class DownloadService : Service() {
             DownloadState.DOWNLOADING -> {
                 val pct = (p.progress * 100).toInt()
                 val parts = buildList {
+                    if (p.phaseText.isNotEmpty()) add(p.phaseText)
                     add("$pct%")
                     if (p.speedText.isNotEmpty()) add(p.speedText)
                     if (p.etaText.isNotEmpty()) add("ETA ${p.etaText}")

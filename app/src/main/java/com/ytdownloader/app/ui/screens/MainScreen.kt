@@ -122,7 +122,7 @@ fun MainScreen(
                 }
                 item {
                     Text(
-                        "Higher resolutions (1080p+) need audio/video merging, which isn't supported — combined streams top out around 720p.",
+                        "Resolutions above 720p are downloaded as separate video and audio and merged on your device.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -151,6 +151,7 @@ fun MainScreen(
                 item {
                     DownloadProgressCard(
                         progress = download.progress,
+                        phaseText = download.phaseText,
                         speedText = download.speedText,
                         etaText = download.etaText,
                         onCancel = viewModel::cancelDownload,
@@ -378,15 +379,16 @@ private fun OptionCard(option: StreamOption, isSelected: Boolean, onClick: () ->
 }
 
 @Composable
-private fun DownloadProgressCard(progress: Float, speedText: String, etaText: String, onCancel: () -> Unit) {
+private fun DownloadProgressCard(progress: Float, phaseText: String, speedText: String, etaText: String, onCancel: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            val title = phaseText.ifEmpty { "Downloading" }
             Text(
-                "Downloading... ${(progress * 100).toInt()}%",
+                "$title... ${(progress * 100).toInt()}%",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
